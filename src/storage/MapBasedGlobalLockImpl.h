@@ -38,14 +38,14 @@ public:
 
 private:
     size_t _max_size;
-    size_t _current_size;
+    mutable size_t _current_size;
     std::unordered_map<const std::string&, Entry*> _backend;
 
     mutable std::mutex _global_mutex;
     mutable List _list;
 
     bool Set(Entry *e, const std::string &value);
-    void Free_Space(size_t needed_space);
+    void FreeSpace(size_t needed_space);
 };
 
 } // namespace Backend

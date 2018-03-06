@@ -27,7 +27,7 @@ public:
         _next = nullptr;
     }
 
-    size_t entry_size() const
+    size_t size() const
     { // noexcept?
         return key.size() + value.size();
     }
@@ -97,7 +97,7 @@ public:
         Entry* next_e = e->get_next();
         Entry* prev_e = e->get_previous();
 
-        next_e->set_prev(prev_e);
+        next_e->set_previous(prev_e);
         prev_e->set_next(next_e);
 
         delete e;
