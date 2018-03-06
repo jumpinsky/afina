@@ -1,11 +1,12 @@
 #ifndef AFINA_STORAGE_MAP_BASED_GLOBAL_LOCK_IMPL_H
 #define AFINA_STORAGE_MAP_BASED_GLOBAL_LOCK_IMPL_H
 
-#include <map>
+#include <unordered_map>
 #include <mutex>
 #include <string>
 
 #include <afina/Storage.h>
+#include "Entry.cpp"
 
 namespace Afina {
 namespace Backend {
@@ -17,7 +18,7 @@ namespace Backend {
  */
 class MapBasedGlobalLockImpl : public Afina::Storage {
 public:
-    MapBasedGlobalLockImpl(size_t max_size = 1024) : _max_size(max_size) {}
+    MapBasedGlobalLockImpl(size_t max_size = 1024) : _max_size(max_size), _current_size(0) {}
     ~MapBasedGlobalLockImpl() {}
 
     // Implements Afina::Storage interface
@@ -37,7 +38,14 @@ public:
 
 private:
     size_t _max_size;
-    std::map<std::string, std::string> _backend;
+    size_t _current_size;
+    std::unordered_map<const std::string&, Entry*> _backend;
+
+    mutable std::mutex _global_mutex;
+    mutable List _list;
+
+    bool Set(Entry *e, const std::string &value);
+    void Free_Space(size_t needed_space);
 };
 
 } // namespace Backend
