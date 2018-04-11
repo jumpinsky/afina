@@ -108,14 +108,8 @@ bool MapBasedGlobalLockImpl::Set(const std::string &key, const std::string &valu
 
 	auto it = _backend.find(key);
 	if(it != _backend.end()) 
-	{
-		Entry* entry = it->second;
-		_current_size = _current_size - entry->value.size() + value.size();
-    	entry->value = value;
-		//return _UnsafeSet(it->second, key, value);
-		return true;
-	}
-
+		return _UnsafeSet(it->second, key, value);
+		
     return false;
 }
 
