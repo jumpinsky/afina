@@ -1,10 +1,10 @@
 #ifndef AFINA_STORAGE_ENTRY_H
 #define AFINA_STORAGE_ENTRY_H
 
-#include <map>
+#include <unordered_map>
 #include <mutex>
 #include <string>
-
+#include <iostream>
 
 namespace Afina {
 namespace Backend {
@@ -15,7 +15,7 @@ public:
     std::string value;
     std::string key;
 
-    Entry(const std::string& key, const std::string& value, Entry* prev, Entry* next) :
+    Entry(const std::string& key, const std::string& value, Entry* prev=nullptr, Entry* next=nullptr) :
             value(value), key(key), _prev(prev), _next(next)
     {}
 
@@ -63,44 +63,86 @@ private:
 class List
 {
 public:
-    List()
-    {
-        _head = nullptr;
-        _tail = nullptr;
-    }
+    List(): _head(nullptr), _tail(nullptr) {};
 
     ~List()
     {
-        Entry* current_entry = _head;
-        while(current_entry != nullptr){
-            Entry *temp = current_entry->get_next();
-            delete current_entry;
-            current_entry = temp;
+        Entry* temp = _head;
+        while(temp != nullptr)
+        {
+            //std::cout << "Not null " << temp  << " with " 
+            //            << temp->key << "->" << temp->value << std::endl;
+            Entry *next = temp;
+            temp = temp->get_next();
+            //std::cout << "Getting next " << next << std::endl;
+            delete next;
         }
+        
     }
 
-    Entry* Put(const std::string& key, const std::string& value) 
+    void Add(Entry* entry) 
     {
-        Entry* e = new Entry(key, value, nullptr, _head);
-        _head->set_previous(e);
-        _head = e;
-        return e;
+        entry->set_next(_head);
+        entry->set_previous(nullptr);
+
+        if (_head != nullptr) 
+        {
+            _head->set_previous(entry);
+        }
+        if (_tail == nullptr) 
+        {
+            _tail = entry;
+        }
+        _head = entry;
     }
 
-    Entry* LRU_Entry()
+    Entry* GetTail() const {return _tail;}
+
+    void SetHead(Entry* entry)
     {
-        return _tail;
+        if (entry == _head) return;
+        
+        Entry* entry_next = entry->get_next();
+        Entry* entry_previous = entry->get_previous();
+
+
+        entry_previous->set_next(entry_next);
+        if (entry == _tail) {
+            entry_previous->set_next(nullptr);
+            _tail = entry_previous;
+        } 
+        else {
+            entry_next->set_previous(entry_previous);
+        }
+
+        entry->set_previous(nullptr);
+        entry->set_next(_head);
+
+        _head->set_previous(entry);
+        _head = entry;
     }
 
-    void Delete(Entry* e)
+    void Delete(Entry* entry)
     {
-        Entry* next_e = e->get_next();
-        Entry* prev_e = e->get_previous();
+        Entry* entry_next = entry->get_next();
+        Entry* entry_previous = entry->get_previous();
 
-        next_e->set_previous(prev_e);
-        prev_e->set_next(next_e);
+        if (entry == _head) {
+            _head = entry_next;
+        } 
+        else {
+            entry_previous->set_next(entry_next);
+        }
 
-        delete e;
+        if (entry == _tail) {
+            entry_previous->set_next(nullptr);
+            _tail = entry_previous;
+        } 
+        else {
+            entry_next->set_previous(entry_previous);
+        }
+
+        delete entry;
     }
 
 private:

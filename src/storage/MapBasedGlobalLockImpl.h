@@ -39,12 +39,17 @@ public:
 private:
     size_t _max_size;
     mutable size_t _current_size;
-    std::unordered_map<const std::string&, Entry*> _backend;
+
+    std::unordered_map<std::reference_wrapper<const std::string>, 
+                        Entry*, 
+                        std::hash<std::string>,
+                        std::equal_to<std::string>> _backend;
 
     mutable std::mutex _global_mutex;
     mutable List _list;
 
-    bool Set(Entry *e, const std::string &value);
+    bool _UnsafePut(const std::string &key, const std::string &value);
+    bool _UnsafeSet(Entry *entry, const std::string &key, const std::string &value);
     void FreeSpace(size_t needed_space);
 };
 

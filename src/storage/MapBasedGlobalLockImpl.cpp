@@ -5,128 +5,136 @@
 namespace Afina {
 namespace Backend {
 
-// See MapBasedGlobalLockImpl.h
-bool MapBasedGlobalLockImpl::Put(const std::string &key, const std::string &value) 
-{
-    std::lock_guard<std::mutex> lock(_global_mutex);
-
-    size_t additional_size = key.size() + value.size();
-    if(additional_size > _max_size)
-    	return false;
-
-	auto found = _backend.find(key);
-	if(found != _backend.end()) 
-	{
-		Entry* found_entry = found->second;
-		additional_size -= found_entry->size();
-		if(_current_size + additional_size > _max_size)
-			FreeSpace(additional_size);
-		//_current_size += additional_size;
-		return Set(found_entry, value);
-	}
-
-	if(_current_size + additional_size > _max_size)
-		FreeSpace(additional_size);
-
-	_current_size += additional_size;
-	Entry *e = _list.Put(key, value);
-	_backend[key] = e;
-
-	return true; 
-}
 
 void MapBasedGlobalLockImpl::FreeSpace(size_t needed_space)
 {
 	while(_current_size + needed_space > _max_size)
 	{
-		Entry* lru_entry = _list.LRU_entry();
-		lru_key = lru_entry->key;
-		auto found = _backend.find(lru_key);
-		
-		if(found != _backend.end()) 
-		{
-			_current_size = _current_size - lru_entry->size();
-			_list.Delete(lru_entry);
-			_backend.erase(found);
-		}
+		Entry* tail = _list.GetTail();
+        _current_size -= tail->size();
+        _list.Delete(tail);
+        _backend.erase(tail->key);
 	}
+}
+
+bool MapBasedGlobalLockImpl::_UnsafeSet(Entry *entry, const std::string &key, const std::string &value) 
+{
+	size_t delta_size = entry->value.size() - value.size();
+    size_t new_size = _current_size - delta_size;
+
+    // Can put in
+    if (new_size <= _max_size) 
+    {
+        entry->value = value;
+        _list.SetHead(entry);
+        _current_size = new_size;
+        return true;
+    }
+    // Not enough space
+    return false;
+}
+
+
+bool MapBasedGlobalLockImpl::_UnsafePut(const std::string &key, const std::string &value) 
+{
+    //size_t additional_size = key.size() + value.size();
+    //if(additional_size > _max_size)
+    //	return false;
+	auto it = _backend.find(key);
+
+	// Update Value section
+	if (it != _backend.end()) 
+	{
+		Entry *entry = it->second;
+		if(_UnsafeSet(entry, key, value))
+            return true;
+
+		// Not enough space
+	    _list.Delete(entry);
+	    _backend.erase(it);
+	    _current_size -= entry->size();
+	}
+
+	// Insert Entry section
+    size_t additional_size = key.size() + value.size();
+    if(additional_size > _max_size)
+    	return false;
+
+	FreeSpace(additional_size);
+	Entry *new_entry = new Entry(key, value);
+	_list.Add(new_entry);
+	_backend.insert(std::make_pair(std::cref(new_entry->key), std::ref(new_entry)));
+
+	_current_size += new_entry->size();
+    return true; 
+}
+
+// See MapBasedGlobalLockImpl.h
+bool MapBasedGlobalLockImpl::Put(const std::string &key, const std::string &value) 
+{
+    size_t additional_size = key.size() + value.size();
+    if(additional_size > _max_size)
+    	return false;
+
+    std::lock_guard<std::mutex> lock(_global_mutex);
+
+    return _UnsafePut(key, value);
 }
 
 // See MapBasedGlobalLockImpl.h
 bool MapBasedGlobalLockImpl::PutIfAbsent(const std::string &key, const std::string &value) 
 { 
-	std::lock_guard<std::mutex> lock(_global_mutex);
-
-    size_t additional_size = key.size() + value.size();
+	size_t additional_size = key.size() + value.size();
     if(additional_size > _max_size)
     	return false;
 
-	auto found = _backend.find(key);
-	if(found != _backend.end()) 
+    std::lock_guard<std::mutex> lock(_global_mutex);
+
+	auto it = _backend.find(key);
+	if(it != _backend.end()) 
 		return false;
 
-	if(_current_size + additional_size > _max_size)
-		FreeSpace(additional_size);
-
-	_current_size += additional_size;
-
-	Entry *e = _list.Put(key, value);
-	_backend[key] = e;
-
-	return true; 
+    return _UnsafePut(key, value);
 }
 
 // See MapBasedGlobalLockImpl.h
 bool MapBasedGlobalLockImpl::Set(const std::string &key, const std::string &value) 
 { 
-	std::lock_guard<std::mutex> lock(_global_mutex);
+	size_t additional_size = key.size() + value.size();
+    if(additional_size > _max_size)
+    	return false;
 
-    size_t additional_size = key.size() + value.size();
+    std::lock_guard<std::mutex> lock(_global_mutex);
 
-	auto found = _backend.find(key);
-	if(found != _backend.end()) 
+	auto it = _backend.find(key);
+	if(it != _backend.end()) 
 	{
-		Entry* found_entry = found->second;
-		additional_size -= found_entry->size();
-		
-		if(_additional_size > _max_size)
-			return false;
-
-		if(_current_size + additional_size > _max_size)
-			FreeSpace(additional_size);
-		
-		//_current_size += additional_size;
-		return Set(found_entry, value);
+		Entry* entry = it->second;
+		_current_size = _current_size - entry->value.size() + value.size();
+    	entry->value = value;
+		//return _UnsafeSet(it->second, key, value);
+		return true;
 	}
 
-	return true; 
+    return false;
 }
 
-bool MapBasedGlobalLockImpl::Set(Entry *e, const std::string &value) 
-{ 
-	std::string key = e->key;
-	_current_size -= e->size();
-	_list.Delete(e);
-
-	Entry* new_e = _list.Put(key, value);
-	_current_size += new_e->size();
-
-	return true;
-}
 
 // See MapBasedGlobalLockImpl.h
 bool MapBasedGlobalLockImpl::Delete(const std::string &key) 
 { 
 	std::lock_guard<std::mutex> lock(_global_mutex);
 
-	auto found = _backend.find(key);
-	if(found != _backend.end()) 
+	auto it = _backend.find(key);
+	if(it != _backend.end()) 
 	{
-		Entry* found_entry = found->second;
-		_current_size = _current_size - found_entry->size();
-		_list.Delete(found_entry);
-		_backend.erase(found);
+		Entry* entry = it->second;
+		_current_size -= entry->size();
+		_list.Delete(entry);
+		_backend.erase(it);
+		return true;
 	}
+	return false;
 }
 
 // See MapBasedGlobalLockImpl.h
@@ -134,17 +142,12 @@ bool MapBasedGlobalLockImpl::Get(const std::string &key, std::string &value) con
 { 
 	std::lock_guard<std::mutex> lock(_global_mutex);
 
-	auto found = _backend.find(key);
-	if(found != _backend.end()) 
+	auto it = _backend.find(key);
+	if(it != _backend.end()) 
 	{
-		Entry* found_entry = found->second;
-		value = found_entry->value;
-
-		_current_size -= found_entry->size();
-		_list.Delete(found_entry);
-
-		Entry* new_e = _list.Put(key, value);
-		_current_size += new_e->size();
+		Entry* entry = it->second;
+	    value = entry->value;
+	    _list.SetHead(entry);
 		return true;
 	}
 
