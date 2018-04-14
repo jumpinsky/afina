@@ -50,9 +50,9 @@ bool MapBasedGlobalLockImpl::_UnsafePut(const std::string &key, const std::strin
             return true;
 
 		// Not enough space
+	    _current_size -= entry->size();
 	    _backend.erase(it);
 	    _list.Delete(entry);
-	    _current_size -= entry->size();
 	}
 
 	// Insert Entry section
