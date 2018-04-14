@@ -12,8 +12,8 @@ void MapBasedGlobalLockImpl::FreeSpace(size_t needed_space)
 	{
 		Entry* tail = _list.GetTail();
         _current_size -= tail->size();
-        _list.Delete(tail);
         _backend.erase(tail->key);
+        _list.Delete(tail);
 	}
 }
 
@@ -50,8 +50,8 @@ bool MapBasedGlobalLockImpl::_UnsafePut(const std::string &key, const std::strin
             return true;
 
 		// Not enough space
-	    _list.Delete(entry);
 	    _backend.erase(it);
+	    _list.Delete(entry);
 	    _current_size -= entry->size();
 	}
 
@@ -124,8 +124,8 @@ bool MapBasedGlobalLockImpl::Delete(const std::string &key)
 	{
 		Entry* entry = it->second;
 		_current_size -= entry->size();
-		_list.Delete(entry);
 		_backend.erase(it);
+		_list.Delete(entry);
 		return true;
 	}
 	return false;
