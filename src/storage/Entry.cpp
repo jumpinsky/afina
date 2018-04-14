@@ -68,7 +68,7 @@ public:
     ~List()
     {
         Entry* temp = _head;
-        while(temp != nullptr)
+        while(temp)
         {
             //std::cout << "Not null " << temp  << " with " 
             //            << temp->key << "->" << temp->value << std::endl;
@@ -85,14 +85,11 @@ public:
         entry->set_next(_head);
         entry->set_previous(nullptr);
 
-        if (_head != nullptr) 
-        {
+        if (_head) 
             _head->set_previous(entry);
-        }
         if (_tail == nullptr) 
-        {
             _tail = entry;
-        }
+        
         _head = entry;
     }
 
@@ -105,14 +102,20 @@ public:
         Entry* entry_next = entry->get_next();
         Entry* entry_previous = entry->get_previous();
 
+        if (entry_previous)
+            entry_previous->set_next(entry_next);
 
-        entry_previous->set_next(entry_next);
-        if (entry == _tail) {
-            entry_previous->set_next(nullptr);
+        if (entry == _tail) 
+        {
+            if(entry_previous)
+                entry_previous->set_next(nullptr);
+
             _tail = entry_previous;
         } 
-        else {
-            entry_next->set_previous(entry_previous);
+        else 
+        {
+            if(entry_next)
+                entry_next->set_previous(entry_previous);
         }
 
         entry->set_previous(nullptr);
@@ -127,19 +130,27 @@ public:
         Entry* entry_next = entry->get_next();
         Entry* entry_previous = entry->get_previous();
 
-        if (entry == _head) {
+        if (entry == _head) 
+        {
             _head = entry_next;
         } 
-        else {
-            entry_previous->set_next(entry_next);
+        else 
+        {
+            if(entry_previous)
+                entry_previous->set_next(entry_next);
         }
 
-        if (entry == _tail) {
-            entry_previous->set_next(nullptr);
+        if (entry == _tail) 
+        {
+            if(entry_previous)
+                entry_previous->set_next(nullptr);
+
             _tail = entry_previous;
         } 
-        else {
-            entry_next->set_previous(entry_previous);
+        else 
+        {
+            if(entry_next)
+                entry_next->set_previous(entry_previous);
         }
 
         delete entry;
