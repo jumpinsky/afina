@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include <afina/network/Server.h>
+#include "../../protocol/Parser.h"
 
 namespace Afina {
 namespace Network {
@@ -40,10 +41,16 @@ protected:
     /**
      * Methos is running for each connection
      */
-    void RunConnection();
-
+    void RunConnection(int client_socket);
+    bool SendMessage(int client_socket, std::string &message);
+    bool GetBody(int client_socket, ssize_t &cursor, char *buffer, std::string &body, uint32_t &body_size);
 private:
+
+    using RunConnectionProxyArgs = std::tuple<ServerImpl *, int>;
     static void *RunAcceptorProxy(void *p);
+    static void *RunConnectionProxy(void *p);
+
+    const ssize_t BUF_SIZE = 1024;
 
     // Atomic flag to notify threads when it is time to stop. Note that
     // flag must be atomic in order to safely publisj changes cross thread
