@@ -6,7 +6,7 @@
 #include <string>
 
 #include <afina/Storage.h>
-#include "Entry.cpp"
+#include "Entry.h"
 
 namespace Afina {
 namespace Backend {
